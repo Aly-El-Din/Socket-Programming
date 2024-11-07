@@ -1,20 +1,20 @@
 import socket
 import threading
+import os
 
 def handle_get(client_socket, path):
-    """
-    TODO: 
-    Transmit contents of file (reads from the file and writes on the socket) (in case of GET) 
-    If document is not available, return 404 Not Found
-    ==>client_socket.send("HTTP/1.1 404 NOT FOUND\r\n".encode("utf-8"))
-    """
-    pass
+    if os.path.exists(path):
+        with open(path, 'r') as file:
+            data = file.read()
+            client_socket.send(f"{data}".encode("utf-8"))
+    else:
+        client_socket.send("HTTP/1.1 404 NOT FOUND\r\n".encode("utf-8"))
 
 def handle_post(client_socket, path):
     client_socket.send("HTTP/1.1 200 OK\r\n".encode("utf-8"))
 
 def handle_error(client_socket, status_code, message):
-    pass
+    client_socket.send(f"HTTP/1.1 {status_code} {message}\r\n".encode("utf-8"))
 
 def handle_client(client_socket, addr):
     try:
