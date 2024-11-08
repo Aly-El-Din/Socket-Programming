@@ -12,6 +12,7 @@ class Server:
         self.port = port
         self.server_socket = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
     def handle_get(self,client_socket, path):
+            print(path)
             if os.path.exists(path):
                 with open(path, 'rb') as file:
                     data = file.read()
@@ -25,59 +26,82 @@ class Server:
             else:
                 client_socket.send("HTTP/1.1 404 NOT FOUND\r\n".encode("utf-8"))
 
+    def handle_post(self, client_socket, request, path):
+        # print(request)
+        # Extract the headers and body from the request
+        headers_end = request.find(b"\r\n\r\n")  # Find the end of headers
+        body = request[headers_end + 4:]  # Get the body after headers
 
-    def handle_post(self,client_socket,request, path):
-        headers_end = request.find("\r\n\r\n")
-        body = request[headers_end + 4:]  # Extract the body of the request
+        # # Check for multipart form data for file upload
+        # content_type = ""
+        # headers = request[:headers_end]
+        # for line in headers.split("\r\n"):
+        #     if line.startswith("Content-Type:"):
+        #         content_type = line.split(": ")[1]
+        #         break
+        #
+        #
+        # # Extract the boundary from Content-Type header
+        # boundary = content_type.split("boundary=")[1]
+        # boundary = "--" + boundary
+
+        # Find the file content within the body
+        # file_start = body.find(boundary) + len(boundary)
+        # file_start = body.find("\r\n\r\n", file_start) + 4  # Skip headers within multipart
+        # file_end = body.find(boundary, file_start) - 4  # Adjust for end boundary
+        #
+        # file_content = body[file_start:file_end]  # The actual file content (binary data)
 
         # Save the file
-        upload_dir = "./uploads"
-        os.makedirs(upload_dir, exist_ok=True)
-        file_path = os.path.join(upload_dir, os.path.basename(path))
-
+        # upload_dir = "./uploads"
+        # os.makedirs(upload_dir, exist_ok=True)
+        # file_path = os.path.join(upload_dir, os.path.basename(path))  # Save to uploads directory
+        file_path = path
+        # Write the file content in binary mode
         with open(file_path, 'wb') as file:
-            file.write(body.encode("utf-8"))
-
+            file.write(body)  # Write binary data directly to file
+            file.flush()
+            os.fsync(file.fileno())
         # Send success response
         response = "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\n\r\nFile uploaded successfully.\r\n"
         client_socket.send(response.encode("utf-8"))
 
-
     def handle_error(self,client_socket, status_code, message):
             client_socket.send(f"HTTP/1.1 {status_code} {message}\r\n".encode("utf-8"))
 
-    def handle_client(self,client_socket, addr):
-            try:
-                while True:
-                    # receive and print client messages
-                    request = client_socket.recv(1024).decode("utf-8")
+    def handle_client(self, client_socket, addr):
+        try:
+            request = b""
+            while True:
+                chunk = client_socket.recv(1024)
+                request += chunk
+                if len(chunk) < 1024:  # No more data to read
+                    break
 
-                    if request.lower() == "close" or not request:
-                        client_socket.send("closed".encode("utf-8"))
-                        break
-                    print(f"Received: {request}")
-                    # # convert and send accept response to the client
-                    # response = "accepted"
-                    # client_socket.send(response.encode("utf-8"))
+            if not request:
+                client_socket.send("closed".encode("utf-8"))
+                return
 
-                    request_lines = request.split('\r\n')
-                    method,path,protocol = request_lines[0].split(' ')
-                    blank_line_idx = request_lines.index('')
-                    headers = request_lines[1:blank_line_idx]
+            # Split the request into lines to handle the headers
+            request_str = request.decode("utf-8", errors="ignore")  # Decode the header part
+            request_lines = request_str.split('\r\n')
+            print(f"Received: {request_lines[0]}")  # The first line will have the method and path
 
-                    if method == 'GET':
-                        self.handle_get(client_socket, path[1:])
-                    elif method == 'POST':
-                        self.handle_post(client_socket,request, path[1:])
-                    else:
-                        self.handle_error(client_socket, 405, "Method Not Allowed")
+            # Extract method and path
+            method, path, _ = request_lines[0].split(' ')
 
-
-            except Exception as e:
-                print(f"Error when hanlding client: {e}")
-            finally:
-                client_socket.close()
-                print(f"Connection to client ({addr[0]}:{addr[1]}) closed")
+            if method == 'GET':
+                self.handle_get(client_socket, path)
+            elif method == 'POST':
+                # Handle POST and pass the raw data (request) for file processing
+                self.handle_post(client_socket, request, path)
+            else:
+                self.handle_error(client_socket, 405, "Method Not Allowed")
+        except Exception as e:
+            print(f"Error when handling client: {e}")
+        finally:
+            client_socket.close()
+            print(f"Connection to client ({addr[0]}:{addr[1]}) closed")
 
     def run_server(self):
             try:
