@@ -1,9 +1,34 @@
 import socket
-
+import os
 
 class Client:
     def __init__(self):
         self.client_socket = None
+
+    def handle_post(self, file_path, method, server_ip, server_port):
+        with open(file_path, 'rb') as file:
+            file_content = file.read()
+        request = f"{method} {file_path} HTTP/1.1\r\n\r\n"
+        print(f"Connecting to server POST {server_ip}:{server_port}")
+        self.client_socket.send(request.encode("utf-8")+file_content)
+        self.receive_response()
+
+    def handle_get(self, file_path, method, server_ip, server_port):
+        request = f"{method} {file_path} HTTP/1.1\r\n\r\n"
+        self.client_socket.send(request.encode("utf-8"))
+        self.receive_response()
+
+    def receive_response(self):
+        response = b""
+        while True:
+            chunk = self.client_socket.recv(1024)
+            if not chunk:
+                break
+            response += chunk
+            if len(chunk) < 1024:  # No more data to read
+                break
+        response_str = response.decode("utf-8", errors="ignore")
+        print(f"Received: {response_str}")
 
     def parse_request(self, request):
         splitted_request = request.split(' ')
@@ -28,63 +53,53 @@ class Client:
 
     def send_request(self, request_parts):
         try:
-            # Create a new socket connection for each request
-            self.client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-
             method = request_parts["method"]
             file_path = request_parts["path"]
-            with open(file_path, 'rb') as file:
-                file_content = file.read()
             server_ip = request_parts["server_ip"]
             server_port = int(request_parts["port_number"])
-
-            request = f"{method} {file_path} HTTP/1.1\r\n\r\n"
-            print(f"Connecting to server {server_ip}:{server_port}")
-            self.client_socket.connect((server_ip, server_port))
-            self.client_socket.send(request.encode("utf-8")[:1024])
-            self.client_socket.send(file_content)
-
-            # Receive message from the server
-            response = self.client_socket.recv(1024)
-            response = response.decode("utf-8")
-            print(f"Received: {response}")
-
-            # If server sent "closed" in the payload, return False to end connection
-            if response.lower() == "closed":
-                return False
+            if method == "POST":
+                self.handle_post(file_path, method, server_ip, server_port)
+            elif method == "GET":
+                self.handle_get(file_path, method, server_ip, server_port)
         except Exception as e:
             print(f"Error sending request: {e}")
+
+    def run(self):
+        try:
+            # Create a new socket connection at the start of the session
+            self.client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            # Connect to the server once before starting the requests
+            self.client_socket.connect(("127.0.0.1", 8000))  # Replace with actual server IP and port
+
+            while True:
+                # Prompt user for file path
+                input_file_path = input("Enter the path of the input file (or 'q' to quit): ")
+                if input_file_path.lower() == 'q':
+                    print("Exiting client.")
+                    break
+
+                try:
+                    # Read requests from the specified file
+                    with open(input_file_path, "r") as input_file:
+                        msg_lines = input_file.read().splitlines()
+
+                    # Process each request line in the file
+                    for request in msg_lines:
+                        request_parts = self.parse_request(request)
+                        if request_parts is not None:
+                            self.send_request(request_parts)
+
+                except FileNotFoundError:
+                    print(f"Error: The file '{input_file_path}' was not found. Please enter a valid file path.")
+                except Exception as e:
+                    print(f"Error: {e}")
+        except Exception as e:
+            print(f"Error: {e}")
         finally:
-            # Close the socket after each request
+            # Close the socket only when the client quits
             if self.client_socket:
                 self.client_socket.close()
                 print("Connection to server closed")
-        return True
-
-    def run(self):
-        while True:
-            # Prompt user for file path
-            input_file_path = input("Enter the path of the input file (or 'q' to quit): ")
-            if input_file_path.lower() == 'q':
-                print("Exiting client.")
-                break
-
-            try:
-                # Read requests from the specified file
-                with open(input_file_path, "r") as input_file:
-                    msg_lines = input_file.read().splitlines()
-
-                # Process each request line in the file
-                for request in msg_lines:
-                    request_parts = self.parse_request(request)
-                    if request_parts is not None:
-                        if not self.send_request(request_parts):
-                            return
-            except FileNotFoundError:
-                print(f"Error: The file '{input_file_path}' was not found. Please enter a valid file path.")
-            except Exception as e:
-                print(f"Error: {e}")
-
 
 # Instantiate and run the client
 client = Client()
