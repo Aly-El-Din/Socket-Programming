@@ -73,11 +73,15 @@ class Client:
 
             while True:
                 # Prompt user for file path
-                input_file_path = input("Enter the path of the input file (or 'q' to quit): ")
+                input_file_path = input("Enter the path of the input file ('q' to quit or 'r' to reconnect): ")
                 if input_file_path.lower() == 'q':
                     print("Exiting client.")
                     break
-
+                if input_file_path.lower() == 'r':
+                    print("Reconnecting......")
+                    self.client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                    self.client_socket.connect(("127.0.0.1", 8000))  # Replace with actual server IP and port
+                    continue
                 try:
                     # Read requests from the specified file
                     with open(input_file_path, "r") as input_file:
