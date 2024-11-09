@@ -16,7 +16,14 @@ class Client:
     def handle_get(self, file_path, method, server_ip, server_port):
         request = f"{method} {file_path} HTTP/1.1\r\n\r\n"
         self.client_socket.send(request.encode("utf-8"))
-        self.receive_response()
+        response = self.receive_response()
+        headers_end = response.find(b"\r\n\r\n")  # Find the end of headers
+        body = response[headers_end + 4:]  # Get the body after headers
+        # Write the file content in binary mode
+        with open(file_path, 'wb') as file:
+            file.write(body)  # Write binary data directly to file
+            file.flush()
+            os.fsync(file.fileno())
 
     def receive_response(self):
         response = b""
@@ -29,6 +36,7 @@ class Client:
                 break
         response_str = response.decode("utf-8", errors="ignore")
         print(f"Received: {response_str}")
+        return response
 
     def parse_request(self, request):
         splitted_request = request.split(' ')
