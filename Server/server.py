@@ -51,13 +51,6 @@ class Server:
 
                 request = b""
                 while True:
-                    # elapsed_time = time.time() - last_active
-                    # if elapsed_time > timeout:
-                    #     print("Client idle timeout reached. Closing connection.")
-                    #     client_socket.close()
-                    #     return
-                    #
-                    # client_socket.settimeout(timeout - elapsed_time)  # Update remaining time as timeout
                     try:
                         chunk = client_socket.recv(1024)
                         if not chunk:
@@ -65,7 +58,6 @@ class Server:
                             client_socket.close()
                             return
                         request += chunk
-                        # last_activity = time.time()  # Reset last activity on data received
                         if len(chunk) < 1024:
                             break
                     except socket.timeout:
@@ -73,7 +65,6 @@ class Server:
                         client_socket.close()
                         return
 
-                # Decode and parse the request
                 request_str = request.decode("utf-8", errors="ignore")
                 request_lines = request_str.split('\r\n')
                 print(f"Received: {request_lines[0]}")
