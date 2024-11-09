@@ -113,6 +113,36 @@ class Client:
                 self.client_socket.close()
                 print("Connection to server closed")
 
+    def test(self):
+        try:
+            # Create a new socket connection at the start of the session
+            self.client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            # Connect to the server once before starting the requests
+            self.client_socket.connect(("127.0.0.1", 8000))  # Replace with actual server IP and port
+            input_file_path = "input.txt"
+            try:
+                    # Read requests from the specified file
+                    with open(input_file_path, "r") as input_file:
+                        msg_lines = input_file.read().splitlines()
+
+                    # Process each request line in the file
+                    for request in msg_lines:
+                        request_parts = self.parse_request(request)
+                        if request_parts is not None:
+                            self.send_request(request_parts)
+
+            except FileNotFoundError:
+                    print(f"Error: The file '{input_file_path}' was not found. Please enter a valid file path.")
+            except Exception as e:
+                    print(f"Error: {e}")
+        except Exception as e:
+            print(f"Error: {e}")
+        finally:
+            # Close the socket only when the client quits
+            if self.client_socket:
+                self.client_socket.close()
+                print("Connection to server closed")
+
 # Instantiate and run the client
 client = Client()
 client.run()
