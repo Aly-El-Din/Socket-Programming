@@ -1,9 +1,17 @@
 import socket
 import os
+import sys
+
 
 class Client:
-    def __init__(self):
+    def __init__(self, ip, port):
         self.client_socket = None
+        self.ip = ip
+        self.port = port
+        # Create a new socket connection at the start of the session
+        self.client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        # Connect to the server once before starting the requests
+        self.client_socket.connect((ip, port))  # Replace with actual server IP and port
 
     def handle_post(self, file_path, method, server_ip, server_port):
         with open(file_path, 'rb') as file:
@@ -35,7 +43,14 @@ class Client:
             if len(chunk) < 1024:  # No more data to read
                 break
         response_str = response.decode("utf-8", errors="ignore")
-        print(f"Received: {response_str}")
+        print(response_str)
+        # header_end_index = response_str.find("\r\n\r\n")
+        # if header_end_index != -1:
+        #     headers = response_str[:header_end_index]
+        #     print(headers)
+        # else:
+        #     # In case there's no \r\n\r\n, print the whole response
+        #     print(f"Received: {response_str}")
         return response
 
     def parse_request(self, request):
@@ -74,10 +89,6 @@ class Client:
 
     def run(self):
         try:
-            # Create a new socket connection at the start of the session
-            self.client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            # Connect to the server once before starting the requests
-            self.client_socket.connect(("127.0.0.1", 8000))  # Replace with actual server IP and port
 
             while True:
                 # Prompt user for file path
@@ -88,7 +99,7 @@ class Client:
                 if input_file_path.lower() == 'r':
                     print("Reconnecting......")
                     self.client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                    self.client_socket.connect(("127.0.0.1", 8000))  # Replace with actual server IP and port
+                    self.client_socket.connect((self.ip, port))  # Replace with actual server IP and port
                     continue
                 try:
                     # Read requests from the specified file
@@ -144,5 +155,16 @@ class Client:
                 print("Connection to server closed")
 
 # Instantiate and run the client
-client = Client()
-client.run()
+if __name__ == "__main__":
+    try:
+        ip = sys.argv[1]
+    except Exception as e:
+        print("No ip found, using default ip")
+        ip = "127.0.0.1"
+    try:
+        port = int(sys.argv[2])
+    except Exception as e:
+        print("No port found, using default port 80")
+        port = 80
+    client = Client(ip, port)
+    client.run()

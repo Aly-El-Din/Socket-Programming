@@ -1,9 +1,9 @@
+import mimetypes
 import socket
 import sys
 import threading
 import os
 import time
-
 
 class Server:
     def __init__(self, host="127.0.0.1", port=8000):
@@ -16,9 +16,12 @@ class Server:
         if os.path.exists(path):
             with open(path, 'rb') as file:
                 data = file.read()
+                content_type, _ = mimetypes.guess_type(path)
+
                 response = (
                     "HTTP/1.1 200 OK\r\n"
-                    "Content-Type: text/plain\r\n\r\n"
+                    f"Content-Length: {len(data)}\r\n"
+                    f"Content-Type: {content_type}\r\n\r\n"
                 ).encode("utf-8") + data + b"\r\n"
                 client_socket.send(response)
         else:
@@ -34,7 +37,7 @@ class Server:
             file.flush()
             os.fsync(file.fileno())
         # Send success response
-        response = "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\n\r\nFile uploaded successfully.\r\n"
+        response = "HTTP/1.1 200 OK\r\n\r\n"
         client_socket.send(response.encode("utf-8"))
 
     def handle_error(self, client_socket, status_code, message):
@@ -46,18 +49,9 @@ class Server:
         timeout = max(5,20-self.active_connections)
         try:
             while True:
-                # last_active = time.time()
                 client_socket.settimeout(timeout)
-
                 request = b""
                 while True:
-                    # elapsed_time = time.time() - last_active
-                    # if elapsed_time > timeout:
-                    #     print("Client idle timeout reached. Closing connection.")
-                    #     client_socket.close()
-                    #     return
-                    #
-                    # client_socket.settimeout(timeout - elapsed_time)  # Update remaining time as timeout
                     try:
                         chunk = client_socket.recv(1024)
                         if not chunk:
@@ -65,22 +59,18 @@ class Server:
                             client_socket.close()
                             return
                         request += chunk
-                        # last_activity = time.time()  # Reset last activity on data received
                         if len(chunk) < 1024:
                             break
                     except socket.timeout:
                         print("Client idle timeout reached. Closing connection.")
                         client_socket.close()
                         return
-
                 # Decode and parse the request
                 request_str = request.decode("utf-8", errors="ignore")
                 request_lines = request_str.split('\r\n')
                 print(f"Received: {request_lines[0]}")
-
                 # Extract the method, path, and headers
                 method, path, _ = request_lines[0].split(' ')
-
                 # Handle the request based on the method
                 if method == 'GET':
                     self.handle_get(client_socket, path)
@@ -105,7 +95,6 @@ class Server:
             # Listen for incoming connections
             self.server_socket.listen()
             print(f"Listening on {self.host}:{self.port}")
-
             while True:
                 # Accept a client connection
                 client_socket, addr = self.server_socket.accept()
@@ -122,7 +111,7 @@ if __name__ == '__main__':
     try:
         port = int(sys.argv[1])
     except Exception as e:
-        print("No port found, using default port 8000")
-        port = 8000
+        print("No port found, using default port 80")
+        port = 80
     server = Server(port=port)
     server.run_server()
