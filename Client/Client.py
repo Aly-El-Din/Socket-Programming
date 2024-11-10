@@ -147,11 +147,6 @@ class Client:
         Continuously prompts for an input file path and processes each line in the file as a request.
         """
         try:
-            # Create a new socket connection at the start of the session
-            self.client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            # Connect to the server once before starting the requests
-            self.client_socket.connect(("127.0.0.1", 8000))  # Replace with actual server IP and port
-
             while True:
                 # Prompt user for file path
                 input_file_path = input("Enter the path of the input file ('q' to quit or 'r' to reconnect): ")
@@ -220,6 +215,7 @@ class Client:
             if self.client_socket:
                 self.client_socket.close()
                 print("Connection to server closed")
+
 
 # Instantiate and run the client
 if __name__ == "__main__":
